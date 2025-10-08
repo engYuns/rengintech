@@ -5,30 +5,38 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Lock } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const [password, setPassword] = useState("");
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Replace with actual authentication
-    if (password === "rengin@luna3234!$") {
-      console.log('Admin login successful');
+  const loginMutation = useMutation({
+    mutationFn: async (password: string) => {
+      return await apiRequest('/api/admin/login', 'POST', { password });
+    },
+    onSuccess: () => {
       localStorage.setItem('adminAuth', 'true');
       toast({
         title: "Login Successful",
         description: "Welcome to the admin panel!",
       });
       setLocation("/admin/dashboard");
-    } else {
+    },
+    onError: () => {
       toast({
         title: "Login Failed",
         description: "Incorrect password. Please try again.",
         variant: "destructive",
       });
-    }
+    },
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate(password);
   };
 
   return (
@@ -50,11 +58,12 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loginMutation.isPending}
                 data-testid="input-admin-password"
               />
             </div>
-            <Button type="submit" className="w-full" data-testid="button-login">
-              Login
+            <Button type="submit" className="w-full" disabled={loginMutation.isPending} data-testid="button-login">
+              {loginMutation.isPending ? "Logging in..." : "Login"}
             </Button>
             <Button 
               type="button" 

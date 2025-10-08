@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Contact() {
   const { toast } = useToast();
@@ -18,14 +20,29 @@ export default function Contact() {
     message: "",
   });
 
+  const mutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      return await apiRequest('/api/bookings', 'POST', data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Message Sent!",
+        description: "We'll get back to you within 24 hours.",
+      });
+      setFormData({ name: "", email: "", phone: "", service: "", message: "" });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    toast({
-      title: "Message Sent!",
-      description: "We'll get back to you within 24 hours.",
-    });
-    setFormData({ name: "", email: "", phone: "", service: "", message: "" });
+    mutation.mutate(formData);
   };
 
   return (
@@ -58,6 +75,7 @@ export default function Contact() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  disabled={mutation.isPending}
                   data-testid="input-name"
                 />
               </div>
@@ -68,6 +86,7 @@ export default function Contact() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                  disabled={mutation.isPending}
                   data-testid="input-email"
                 />
               </div>
@@ -78,11 +97,16 @@ export default function Contact() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
+                  disabled={mutation.isPending}
                   data-testid="input-phone"
                 />
               </div>
               <div>
-                <Select value={formData.service} onValueChange={(value) => setFormData({ ...formData, service: value })}>
+                <Select 
+                  value={formData.service} 
+                  onValueChange={(value) => setFormData({ ...formData, service: value })}
+                  disabled={mutation.isPending}
+                >
                   <SelectTrigger data-testid="select-service">
                     <SelectValue placeholder="Select Service" />
                   </SelectTrigger>
@@ -102,12 +126,13 @@ export default function Contact() {
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   required
+                  disabled={mutation.isPending}
                   rows={5}
                   data-testid="textarea-message"
                 />
               </div>
-              <Button type="submit" size="lg" className="w-full" data-testid="button-submit">
-                Request Consultation
+              <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending} data-testid="button-submit">
+                {mutation.isPending ? "Sending..." : "Request Consultation"}
               </Button>
             </form>
           </motion.div>
