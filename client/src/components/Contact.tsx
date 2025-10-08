@@ -31,7 +31,8 @@ export default function Contact() {
       });
       setFormData({ name: "", email: "", phone: "", service: "", message: "" });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Contact form error:', error);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
@@ -42,6 +43,18 @@ export default function Contact() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate that service is selected
+    if (!formData.service) {
+      toast({
+        title: "Service Required",
+        description: "Please select a service from the dropdown.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log('Submitting booking:', formData);
     mutation.mutate(formData);
   };
 
@@ -106,6 +119,7 @@ export default function Contact() {
                   value={formData.service} 
                   onValueChange={(value) => setFormData({ ...formData, service: value })}
                   disabled={mutation.isPending}
+                  required
                 >
                   <SelectTrigger data-testid="select-service">
                     <SelectValue placeholder="Select Service" />

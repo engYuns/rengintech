@@ -40,6 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = await storage.createClient(data);
       res.json(client);
     } catch (error) {
+      console.error('Client creation error:', error);
       res.status(400).json({ error: "Invalid client data" });
     }
   });
@@ -102,6 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const review = await storage.createReview(data);
       res.json(review);
     } catch (error) {
+      console.error('Review creation error:', error);
       res.status(400).json({ error: "Invalid review data" });
     }
   });
@@ -141,10 +143,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Booking routes
   app.post("/api/bookings", async (req, res) => {
     try {
+      console.log('Received booking request:', req.body);
       const data = insertBookingSchema.parse(req.body);
       const booking = await storage.createBooking(data);
       res.json(booking);
     } catch (error) {
+      console.error('Booking creation error:', error);
       res.status(400).json({ error: "Invalid booking data" });
     }
   });
