@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -16,7 +15,7 @@ export default function Contact() {
     name: "",
     email: "",
     phone: "",
-    service: "",
+    service: "general",
     message: "",
   });
 
@@ -26,16 +25,16 @@ export default function Contact() {
     },
     onSuccess: () => {
       toast({
-        title: "Message Sent!",
+        title: "Booking Sent!",
         description: "We'll get back to you within 24 hours.",
       });
-      setFormData({ name: "", email: "", phone: "", service: "", message: "" });
+      setFormData({ name: "", email: "", phone: "", service: "general", message: "" });
     },
     onError: (error) => {
       console.error('Contact form error:', error);
       toast({
         title: "Error",
-        description: "Failed to send message. Please try again.",
+        description: "Failed to send booking. Please try again.",
         variant: "destructive",
       });
     },
@@ -43,17 +42,6 @@ export default function Contact() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate that service is selected
-    if (!formData.service) {
-      toast({
-        title: "Service Required",
-        description: "Please select a service from the dropdown.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     console.log('Submitting booking:', formData);
     mutation.mutate(formData);
   };
@@ -68,9 +56,9 @@ export default function Contact() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Get In Touch</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">Book Your Service</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ready to transform your digital presence? Let's talk about your project
+            Ready to transform your digital presence? Book a consultation with us
           </p>
         </motion.div>
 
@@ -84,7 +72,7 @@ export default function Contact() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <Input
-                  placeholder="Your Name"
+                  placeholder="Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
@@ -94,19 +82,8 @@ export default function Contact() {
               </div>
               <div>
                 <Input
-                  type="email"
-                  placeholder="Email Address"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  disabled={mutation.isPending}
-                  data-testid="input-email"
-                />
-              </div>
-              <div>
-                <Input
                   type="tel"
-                  placeholder="Phone Number"
+                  placeholder="Phone"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
@@ -115,28 +92,19 @@ export default function Contact() {
                 />
               </div>
               <div>
-                <Select 
-                  value={formData.service} 
-                  onValueChange={(value) => setFormData({ ...formData, service: value })}
-                  disabled={mutation.isPending}
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                >
-                  <SelectTrigger data-testid="select-service">
-                    <SelectValue placeholder="Select Service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="social-media">Social Media Management</SelectItem>
-                    <SelectItem value="website">Website Development</SelectItem>
-                    <SelectItem value="graphic-design">Graphic Design</SelectItem>
-                    <SelectItem value="motion-graphics">Motion Graphics</SelectItem>
-                    <SelectItem value="video-photo">Video & Photo Graphics</SelectItem>
-                    <SelectItem value="digital-marketing">Digital Marketing</SelectItem>
-                  </SelectContent>
-                </Select>
+                  disabled={mutation.isPending}
+                  data-testid="input-email"
+                />
               </div>
               <div>
                 <Textarea
-                  placeholder="Tell us about your project..."
+                  placeholder="Describe your work"
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   required
@@ -146,7 +114,7 @@ export default function Contact() {
                 />
               </div>
               <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending} data-testid="button-submit">
-                {mutation.isPending ? "Sending..." : "Request Consultation"}
+                {mutation.isPending ? "Sending..." : "Book Now"}
               </Button>
             </form>
           </motion.div>

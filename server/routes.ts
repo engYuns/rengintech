@@ -3,8 +3,43 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertClientSchema, insertReviewSchema, insertBookingSchema } from "@shared/schema";
 import bcrypt from "bcrypt";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Setup multer for file uploads
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  const storage_multer = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+  });
+
+  const upload = multer({ 
+    storage: storage_multer,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|webp/;
+      const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = allowedTypes.test(file.mimetype);
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed!'));
+      }
+    }
+  });
   
   // Admin login
   app.post("/api/admin/login", async (req, res) => {
@@ -34,9 +69,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients", async (req, res) => {
+  app.post("/api/clients", upload.single('logo'), async (req, res) => {
     try {
-      const data = insertClientSchema.parse(req.body);
+      const { name, category, description } = req.body;
+      const logoUrl = req.file ? `/uploads/${req.file.filename}` : null;
+      
+      const data = insertClientSchema.parse({
+        name,
+        category,
+        description,
+        logoUrl
+      });
+      
       const client = await storage.createClient(data);
       res.json(client);
     } catch (error) {
@@ -159,6 +203,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(bookings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+  });
+
+  app.patch("/api/bookings/:id/read", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const booking = await storage.markBookingAsRead(id);
+      
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found" });
+        return;
+      }
+      
+      res.json(booking);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to mark booking as read" });
     }
   });
 

@@ -35,6 +35,7 @@ export const bookings = pgTable("bookings", {
   phone: text("phone").notNull(),
   service: text("service").notNull(),
   message: text("message").notNull(),
+  read: boolean("read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -55,6 +56,7 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
 
 export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
+  read: true,
   createdAt: true,
 });
 

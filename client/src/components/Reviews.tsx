@@ -1,14 +1,58 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Review } from "@shared/schema";
 
 export default function Reviews() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [formData, setFormData] = useState({
+    name: "",
+    company: "",
+    text: "",
+  });
+
   const { data: reviews = [], isLoading } = useQuery<Review[]>({
     queryKey: ['/api/reviews'],
   });
+
+  const submitReviewMutation = useMutation({
+    mutationFn: async (data: typeof formData & { rating: number }) => {
+      return await apiRequest('/api/reviews', 'POST', data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Review Submitted!",
+        description: "Your review is pending approval. Thank you for your feedback!",
+      });
+      setOpen(false);
+      setFormData({ name: "", company: "", text: "" });
+      setRating(5);
+      queryClient.invalidateQueries({ queryKey: ['/api/reviews'] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit review. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitReviewMutation.mutate({ ...formData, rating });
+  };
 
   if (isLoading) {
     return (
@@ -41,9 +85,90 @@ export default function Reviews() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-bold mb-4">Client Reviews</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
             What our clients say about working with us
           </p>
+          
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="lg" variant="outline" className="gap-2">
+                <Star className="w-5 h-5" />
+                Add Your Review
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Share Your Experience</DialogTitle>
+                <DialogDescription>
+                  Tell us about your experience working with Rengin Tech. Your review will be published after approval.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmitReview} className="space-y-4 mt-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Rating</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        className="transition-transform hover:scale-110"
+                      >
+                        <Star
+                          className={`w-8 h-8 ${
+                            star <= rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-gray-300"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Input
+                    placeholder="Your Name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    disabled={submitReviewMutation.isPending}
+                  />
+                </div>
+                <div>
+                  <Input
+                    placeholder="Company Name"
+                    value={formData.company}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    required
+                    disabled={submitReviewMutation.isPending}
+                  />
+                </div>
+                <div>
+                  <Textarea
+                    placeholder="Share your experience..."
+                    value={formData.text}
+                    onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+                    required
+                    disabled={submitReviewMutation.isPending}
+                    rows={4}
+                  />
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOpen(false)}
+                    disabled={submitReviewMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submitReviewMutation.isPending}>
+                    {submitReviewMutation.isPending ? "Submitting..." : "Submit Review"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </motion.div>
 
         {reviews.length === 0 ? (

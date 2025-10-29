@@ -10,12 +10,13 @@ import { useToast } from "@/hooks/use-toast";
 import { LogOut, Plus, Trash2, Edit, Check, X, Star } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Client, Review } from "@shared/schema";
+import type { Client, Review, Booking } from "@shared/schema";
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [newClient, setNewClient] = useState({ name: "", category: "", description: "", logoUrl: "" });
+  const [newClient, setNewClient] = useState({ name: "", category: "", description: "" });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
 
   useEffect(() => {
     const isAuth = localStorage.getItem('adminAuth');
@@ -32,14 +33,26 @@ export default function AdminDashboard() {
     queryKey: ['/api/reviews/all'],
   });
 
+  const { data: bookings = [] } = useQuery<Booking[]>({
+    queryKey: ['/api/bookings'],
+  });
+
   const addClientMutation = useMutation({
-    mutationFn: async (data: typeof newClient) => {
-      return await apiRequest('/api/clients', 'POST', data);
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error('Failed to add client');
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
       toast({ title: "Client added successfully" });
-      setNewClient({ name: "", category: "", description: "", logoUrl: "" });
+      setNewClient({ name: "", category: "", description: "" });
+      setLogoFile(null);
     },
     onError: () => {
       toast({ title: "Failed to add client", variant: "destructive" });
@@ -87,6 +100,19 @@ export default function AdminDashboard() {
     },
   });
 
+  const markBookingAsReadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/bookings/${id}/read`, 'PATCH');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({ title: "Booking marked as read" });
+    },
+    onError: () => {
+      toast({ title: "Failed to mark booking as read", variant: "destructive" });
+    },
+  });
+
   const handleLogout = () => {
     localStorage.removeItem('adminAuth');
     toast({ title: "Logged out successfully" });
@@ -95,7 +121,16 @@ export default function AdminDashboard() {
 
   const handleAddClient = (e: React.FormEvent) => {
     e.preventDefault();
-    addClientMutation.mutate(newClient);
+    
+    const formData = new FormData();
+    formData.append('name', newClient.name);
+    formData.append('category', newClient.category);
+    formData.append('description', newClient.description);
+    if (logoFile) {
+      formData.append('logo', logoFile);
+    }
+    
+    addClientMutation.mutate(formData);
   };
 
   return (
@@ -117,6 +152,7 @@ export default function AdminDashboard() {
           <TabsList>
             <TabsTrigger value="clients" data-testid="tab-clients">Clients</TabsTrigger>
             <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews</TabsTrigger>
+            <TabsTrigger value="bookings" data-testid="tab-bookings">Bookings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="clients" className="space-y-6">
@@ -143,13 +179,21 @@ export default function AdminDashboard() {
                     disabled={addClientMutation.isPending}
                     data-testid="input-client-category"
                   />
-                  <Input
-                    placeholder="Logo URL (optional)"
-                    value={newClient.logoUrl}
-                    onChange={(e) => setNewClient({ ...newClient, logoUrl: e.target.value })}
-                    disabled={addClientMutation.isPending}
-                    data-testid="input-client-logo"
-                  />
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Client Logo (optional)</label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                      disabled={addClientMutation.isPending}
+                      data-testid="input-client-logo"
+                    />
+                    {logoFile && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Selected: {logoFile.name}
+                      </p>
+                    )}
+                  </div>
                   <Textarea
                     placeholder="Project Description"
                     value={newClient.description}
@@ -255,6 +299,65 @@ export default function AdminDashboard() {
                             >
                               <X className="w-4 h-4" />
                             </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="bookings" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Booking Requests ({bookings.length})</CardTitle>
+                <CardDescription>View customer booking inquiries</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {bookings.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No booking requests yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {bookings.map((booking) => (
+                      <div key={booking.id} className="p-4 border border-border rounded-md" data-testid={`booking-${booking.id}`}>
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-lg">{booking.name}</h3>
+                            <Badge variant={booking.read ? "default" : "secondary"}>
+                              {booking.read ? "Read" : "Unread"}
+                            </Badge>
+                          </div>
+                          {!booking.read && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => markBookingAsReadMutation.mutate(booking.id)} 
+                              disabled={markBookingAsReadMutation.isPending}
+                              data-testid={`button-mark-read-${booking.id}`}
+                            >
+                              <Check className="w-4 h-4 mr-2" />
+                              Mark as Read
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <div className="space-y-1 text-sm">
+                              <p><span className="text-muted-foreground">Email:</span> {booking.email}</p>
+                              <p><span className="text-muted-foreground">Phone:</span> {booking.phone}</p>
+                              <p><span className="text-muted-foreground">Service:</span> <Badge variant="outline">{booking.service}</Badge></p>
+                              {booking.createdAt && (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  Submitted: {new Date(booking.createdAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium mb-1">Message:</p>
+                            <p className="text-sm text-muted-foreground">{booking.message}</p>
                           </div>
                         </div>
                       </div>
