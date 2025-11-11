@@ -2,11 +2,14 @@ import {
   type Admin, type InsertAdmin,
   type Client, type InsertClient,
   type Review, type InsertReview,
-  type Booking, type InsertBooking
+  type Booking, type InsertBooking,
+  admins, clients, reviews, bookings
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Admin methods
@@ -311,5 +314,89 @@ export class FileStorage implements IStorage {
   }
 }
 
-// Export file storage as the main storage implementation
-export const storage = new FileStorage();
+export class DatabaseStorage implements IStorage {
+  // Admin methods
+  async getAdminByUsername(username: string): Promise<Admin | undefined> {
+    const result = await db.select().from(admins).where(eq(admins.username, username));
+    return result[0];
+  }
+
+  async createAdmin(insertAdmin: InsertAdmin): Promise<Admin> {
+    const result = await db.insert(admins).values(insertAdmin).returning();
+    return result[0];
+  }
+
+  // Client methods
+  async getAllClients(): Promise<Client[]> {
+    return await db.select().from(clients);
+  }
+
+  async getClient(id: string): Promise<Client | undefined> {
+    const result = await db.select().from(clients).where(eq(clients.id, id));
+    return result[0];
+  }
+
+  async createClient(insertClient: InsertClient): Promise<Client> {
+    const result = await db.insert(clients).values(insertClient).returning();
+    return result[0];
+  }
+
+  async updateClient(id: string, updates: Partial<InsertClient>): Promise<Client | undefined> {
+    const result = await db.update(clients).set(updates).where(eq(clients.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteClient(id: string): Promise<boolean> {
+    const result = await db.delete(clients).where(eq(clients.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Review methods
+  async getAllReviews(): Promise<Review[]> {
+    return await db.select().from(reviews);
+  }
+
+  async getApprovedReviews(): Promise<Review[]> {
+    return await db.select().from(reviews).where(eq(reviews.approved, true));
+  }
+
+  async getReview(id: string): Promise<Review | undefined> {
+    const result = await db.select().from(reviews).where(eq(reviews.id, id));
+    return result[0];
+  }
+
+  async createReview(insertReview: InsertReview): Promise<Review> {
+    const result = await db.insert(reviews).values(insertReview).returning();
+    return result[0];
+  }
+
+  async approveReview(id: string): Promise<Review | undefined> {
+    const result = await db.update(reviews).set({ approved: true }).where(eq(reviews.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteReview(id: string): Promise<boolean> {
+    const result = await db.delete(reviews).where(eq(reviews.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Booking methods
+  async getAllBookings(): Promise<Booking[]> {
+    return await db.select().from(bookings);
+  }
+
+  async createBooking(insertBooking: InsertBooking): Promise<Booking> {
+    const result = await db.insert(bookings).values(insertBooking).returning();
+    return result[0];
+  }
+
+  async markBookingAsRead(id: string): Promise<Booking | undefined> {
+    const result = await db.update(bookings).set({ read: true }).where(eq(bookings.id, id)).returning();
+    return result[0];
+  }
+}
+
+// Use database storage if DATABASE_URL is set, otherwise fall back to file storage
+export const storage = process.env.DATABASE_URL 
+  ? new DatabaseStorage() 
+  : new FileStorage();
